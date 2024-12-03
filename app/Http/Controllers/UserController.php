@@ -3,15 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Enums\Config as ConfigEnum;
-use App\Http\Requests\StoreUserRequest;
-use App\Http\Requests\UpdateUserRequest;
 use App\Models\Config;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use TheSeer\Tokenizer\Exception;
 
 class UserController extends Controller
 {
@@ -32,37 +29,67 @@ class UserController extends Controller
     /**
      * Store a newly created resource in storage.
      *
-     * @param StoreUserRequest $request
+     * @param Request $request
      * @return RedirectResponse
      */
-    public function store(StoreUserRequest $request): RedirectResponse
+    public function store(Request $request): RedirectResponse
     {
         try {
-            $newUser = $request->validated();
-            $newUser['password'] = Hash::make(Config::getValueByCode(ConfigEnum::DEFAULT_PASSWORD));
-            User::create($newUser);
+            // Validasi input langsung
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|unique:users,email',
+                'phone' => 'required|string|max:15',
+                'password' => 'sometimes|nullable|min:8|confirmed',
+            ]);
+
+            // Set password untuk user baru (default atau yang diberikan)
+            $validated['password'] = isset($validated['password']) && auth()->user()->role === 'admin'
+                ? Hash::make($validated['password'])
+                : Hash::make(Config::getValueByCode(ConfigEnum::DEFAULT_PASSWORD));
+
+            User::create($validated);
             return back()->with('success', __('menu.general.success'));
         } catch (\Throwable $exception) {
             return back()->with('error', $exception->getMessage());
         }
-        
     }
 
     /**
      * Update the specified resource in storage.
      *
-     * @param UpdateUserRequest $request
+     * @param Request $request
      * @param User $user
      * @return RedirectResponse
      */
-    public function update(UpdateUserRequest $request, User $user): RedirectResponse
+    public function update(Request $request, User $user): RedirectResponse
     {
         try {
-            $newUser = $request->validated();
-            $newUser['is_active'] = isset($newUser['is_active']);
-            if ($request->reset_password)
-                $newUser['password'] = Hash::make(Config::getValueByCode(ConfigEnum::DEFAULT_PASSWORD));
-            $user->update($newUser);
+            // Validasi inputan yang masuk
+            $validated = $request->validate([
+                'name' => 'sometimes|string|max:255',
+                'email' => 'sometimes|email|unique:users,email,' . $user->id,
+                'phone' => 'sometimes|string|max:15',
+                'status' => 'sometimes|string|in:aktif,non aktif', // Validasi status
+                'password' => 'sometimes|nullable|min:8|confirmed',
+            ]);
+
+            // Jika password diubah, hash password baru
+            if ($request->filled('password')) {
+                $validated['password'] = Hash::make($request->password);
+            }
+
+            // Pastikan status hanya berubah jika ada perubahan
+            if ($request->filled('status')) {
+                $validated['status'] = $request->input('status');
+            } else {
+                // Jika tidak ada perubahan status, tetap gunakan status yang lama
+                unset($validated['status']);
+            }
+
+            // Update user dengan data baru
+            $user->update($validated);
+
             return back()->with('success', __('menu.general.success'));
         } catch (\Throwable $exception) {
             return back()->with('error', $exception->getMessage());
