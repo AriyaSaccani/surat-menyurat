@@ -13,6 +13,11 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+Route::resource('incoming', \App\Http\Controllers\IncomingLetterController::class)
+    ->middleware(['role:admin|staff']);
+
+
+
 Route::middleware(['auth'])->group(function () {
     Route::get('/', [\App\Http\Controllers\PageController::class, 'index'])->name('home');
 

@@ -13,12 +13,13 @@ class ClassificationSeeder extends Seeder
      *
      * @return void
      */
-    public function run(): void
+    public function run()
     {
-        Classification::create([
-            'code' => 'ADM',
-            'type' => 'Administrasi',
-            'description' => 'Jenis surat yang berkaitan dengan administrasi',
+        Classification::firstOrCreate([
+            'code' => 'STAFF'
+        ], [
+            'type' => 'Staff',
+            'description' => 'Jenis surat yang berkaitan dengan staff'
         ]);
     }
-}
+}    

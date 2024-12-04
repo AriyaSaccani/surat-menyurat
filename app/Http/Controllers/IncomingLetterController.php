@@ -25,8 +25,15 @@ class IncomingLetterController extends Controller
      */
     public function index(Request $request): View
     {
+        $query = Letter::incoming();  // Mendapatkan surat masuk
+
+        // Jika role pengguna adalah staff, filter surat berdasarkan user_id
+        if (auth()->user()->role == 'staff') {
+            $query->where('user_id', auth()->user()->id);
+        }
+
         return view('pages.transaction.incoming.index', [
-            'data' => Letter::incoming()->render($request->search),
+            'data' => $query->render($request->search),
             'search' => $request->search,
         ]);
     }
@@ -39,8 +46,15 @@ class IncomingLetterController extends Controller
      */
     public function agenda(Request $request): View
     {
+        $query = Letter::incoming()->agenda($request->since, $request->until, $request->filter);  // Mendapatkan surat masuk dengan agenda
+
+        // Jika role pengguna adalah staff, filter surat berdasarkan user_id
+        if (auth()->user()->role == 'staff') {
+            $query->where('user_id', auth()->user()->id);
+        }
+
         return view('pages.transaction.incoming.agenda', [
-            'data' => Letter::incoming()->agenda($request->since, $request->until, $request->filter)->render($request->search),
+            'data' => $query->render($request->search),
             'search' => $request->search,
             'since' => $request->since,
             'until' => $request->until,
@@ -58,8 +72,16 @@ class IncomingLetterController extends Controller
         $agenda = __('menu.agenda.menu');
         $letter = __('menu.agenda.incoming_letter');
         $title = App::getLocale() == 'id' ? "$agenda $letter" : "$letter $agenda";
+        
+        $query = Letter::incoming()->agenda($request->since, $request->until, $request->filter);  // Mendapatkan surat masuk untuk print
+
+        // Jika role pengguna adalah staff, filter surat berdasarkan user_id
+        if (auth()->user()->role == 'staff') {
+            $query->where('user_id', auth()->user()->id);
+        }
+
         return view('pages.transaction.incoming.print', [
-            'data' => Letter::incoming()->agenda($request->since, $request->until, $request->filter)->get(),
+            'data' => $query->get(),
             'search' => $request->search,
             'since' => $request->since,
             'until' => $request->until,
@@ -93,9 +115,11 @@ class IncomingLetterController extends Controller
             $user = auth()->user();
 
             if ($request->type != LetterType::INCOMING->type()) throw new \Exception(__('menu.transaction.incoming_letter'));
+
             $newLetter = $request->validated();
-            $newLetter['user_id'] = $user->id;
+            $newLetter['user_id'] = $user->id;  // Menyimpan user_id saat surat disimpan
             $letter = Letter::create($newLetter);
+
             if ($request->hasFile('attachments')) {
                 foreach ($request->attachments as $attachment) {
                     $extension = $attachment->getClientOriginalExtension();
@@ -111,6 +135,7 @@ class IncomingLetterController extends Controller
                     ]);
                 }
             }
+
             return redirect()
                 ->route('transaction.incoming.index')
                 ->with('success', __('menu.general.success'));
@@ -127,6 +152,11 @@ class IncomingLetterController extends Controller
      */
     public function show(Letter $incoming): View
     {
+        // Pastikan hanya staff yang melihat surat yang dibuat oleh mereka sendiri
+        if (auth()->user()->role == 'staff' && auth()->user()->id !== $incoming->user_id) {
+            abort(403, 'You are not authorized to view this letter');
+        }
+
         return view('pages.transaction.incoming.show', [
             'data' => $incoming->load(['classification', 'user', 'attachments']),
         ]);
@@ -140,6 +170,11 @@ class IncomingLetterController extends Controller
      */
     public function edit(Letter $incoming): View
     {
+        // Pastikan hanya staff yang bisa mengedit surat yang mereka buat
+        if (auth()->user()->role == 'staff' && auth()->user()->id !== $incoming->user_id) {
+            abort(403, 'You are not authorized to edit this letter');
+        }
+
         return view('pages.transaction.incoming.edit', [
             'data' => $incoming,
             'classifications' => Classification::all(),
@@ -156,7 +191,13 @@ class IncomingLetterController extends Controller
     public function update(UpdateLetterRequest $request, Letter $incoming): RedirectResponse
     {
         try {
+            // Pastikan hanya staff yang mengedit surat yang mereka buat
+            if (auth()->user()->role == 'staff' && auth()->user()->id !== $incoming->user_id) {
+                abort(403, 'You are not authorized to edit this letter');
+            }
+
             $incoming->update($request->validated());
+
             if ($request->hasFile('attachments')) {
                 foreach ($request->attachments as $attachment) {
                     $extension = $attachment->getClientOriginalExtension();
@@ -172,6 +213,7 @@ class IncomingLetterController extends Controller
                     ]);
                 }
             }
+
             return back()->with('success', __('menu.general.success'));
         } catch (\Throwable $exception) {
             return back()->with('error', $exception->getMessage());
@@ -187,7 +229,13 @@ class IncomingLetterController extends Controller
     public function destroy(Letter $incoming): RedirectResponse
     {
         try {
+            // Pastikan hanya admin atau creator surat yang bisa menghapus surat
+            if (auth()->user()->role == 'staff' && auth()->user()->id !== $incoming->user_id) {
+                abort(403, 'You are not authorized to delete this letter');
+            }
+
             $incoming->delete();
+
             return redirect()
                 ->route('transaction.incoming.index')
                 ->with('success', __('menu.general.success'));
