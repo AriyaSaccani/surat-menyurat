@@ -1,9 +1,11 @@
 <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
     <div class="app-brand demo">
         <a href="{{ route('home') }}" class="app-brand-link">
-            <img src="{{ asset('logo-black.png') }}" alt="{{ config('app.name') }}" width="35">
-            <span class="app-brand-text demo text-black fw-bolder ms-2">{{ config('app.name') }}</span>
+            <img src="{{ asset('logo-black3.png') }}" alt="PT. Cipta Semesta" width="35">
+            <span class="app-brand-text demo text-black fw-bolder ms-2" style="text-transform: uppercase; font-size: 17px;">PT. Cipta Semesta</span>
         </a>
+        
+              
 
         <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
             <i class="bx bx-chevron-left bx-sm align-middle"></i>
